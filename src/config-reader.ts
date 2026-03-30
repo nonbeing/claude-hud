@@ -180,6 +180,42 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
     userMcpServers.delete(name);
   }
 
+  // === PLUGIN SCOPE ===
+  // Scan enabled plugins' .mcp.json files in the plugin cache.
+  // Plugin .mcp.json can use flat format {"name": {config}} or wrapped {"mcpServers": {"name": {config}}}.
+  const pluginCacheDir = path.join(claudeDir, 'plugins', 'cache');
+  try {
+    for (const marketplace of fs.readdirSync(pluginCacheDir, { withFileTypes: true })) {
+      if (!marketplace.isDirectory()) continue;
+      for (const plugin of fs.readdirSync(path.join(pluginCacheDir, marketplace.name), { withFileTypes: true })) {
+        if (!plugin.isDirectory()) continue;
+        const pluginDir = path.join(pluginCacheDir, marketplace.name, plugin.name);
+        for (const ver of fs.readdirSync(pluginDir, { withFileTypes: true })) {
+          if (!ver.isDirectory()) continue;
+          const mcpJson = path.join(pluginDir, ver.name, '.mcp.json');
+          if (!fs.existsSync(mcpJson)) continue;
+          try {
+            const content = fs.readFileSync(mcpJson, 'utf8');
+            const data = JSON.parse(content);
+            const mcpObj = (data.mcpServers && typeof data.mcpServers === 'object')
+              ? data.mcpServers
+              : data;
+            for (const name of Object.keys(mcpObj)) {
+              const cfg = mcpObj[name];
+              if (cfg && typeof cfg === 'object' && (cfg.command || cfg.type || cfg.url)) {
+                userMcpServers.add(name);
+              }
+            }
+          } catch {
+            debug(`Failed to read plugin MCP config from ${mcpJson}`);
+          }
+        }
+      }
+    }
+  } catch {
+    debug('Failed to scan plugin cache for MCP servers');
+  }
+
   // === PROJECT SCOPE ===
 
   // Avoid double-counting when project .claude directory is the same location as user scope.
