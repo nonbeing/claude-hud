@@ -84,6 +84,16 @@ export function claudeOrange(text: string): string {
   return colorize(text, CLAUDE_ORANGE);
 }
 
+export function effortDot(level: string | null | undefined): string {
+  if (!level) return '';
+  switch (level) {
+    case 'high':   return red('●');
+    case 'medium': return yellow('●');
+    case 'low':    return green('●');
+    default:       return dim('●');
+  }
+}
+
 export function model(text: string, colors?: Partial<HudColorOverrides>): string {
   return withOverride(text, colors?.model, CYAN);
 }

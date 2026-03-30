@@ -8,7 +8,9 @@ const debug = createDebug('config');
 
 export interface ConfigCounts {
   claudeMdCount: number;
+  claudeMdBytes: number;
   rulesCount: number;
+  rulesBytes: number;
   mcpCount: number;
   hooksCount: number;
 }
@@ -73,23 +75,35 @@ function countHooksInFile(filePath: string): number {
   return 0;
 }
 
-function countRulesInDir(rulesDir: string): number {
-  if (!fs.existsSync(rulesDir)) return 0;
+function readFileBytes(filePath: string): number {
+  try {
+    return fs.statSync(filePath).size;
+  } catch {
+    return 0;
+  }
+}
+
+function countRulesInDir(rulesDir: string): { count: number; bytes: number } {
+  if (!fs.existsSync(rulesDir)) return { count: 0, bytes: 0 };
   let count = 0;
+  let bytes = 0;
   try {
     const entries = fs.readdirSync(rulesDir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(rulesDir, entry.name);
       if (entry.isDirectory()) {
-        count += countRulesInDir(fullPath);
+        const sub = countRulesInDir(fullPath);
+        count += sub.count;
+        bytes += sub.bytes;
       } else if (entry.isFile() && entry.name.endsWith('.md')) {
         count++;
+        bytes += readFileBytes(fullPath);
       }
     }
   } catch (error) {
     debug(`Failed to read rules from ${rulesDir}:`, error);
   }
-  return count;
+  return { count, bytes };
 }
 
 function normalizePathForComparison(inputPath: string): string {
@@ -121,7 +135,9 @@ function pathsReferToSameLocation(pathA: string, pathB: string): boolean {
 
 export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
   let claudeMdCount = 0;
+  let claudeMdBytes = 0;
   let rulesCount = 0;
+  let rulesBytes = 0;
   let hooksCount = 0;
 
   const homeDir = os.homedir();
@@ -134,12 +150,16 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
   // === USER SCOPE ===
 
   // ~/.claude/CLAUDE.md
-  if (fs.existsSync(path.join(claudeDir, 'CLAUDE.md'))) {
+  const userClaudeMdPath = path.join(claudeDir, 'CLAUDE.md');
+  if (fs.existsSync(userClaudeMdPath)) {
     claudeMdCount++;
+    claudeMdBytes += readFileBytes(userClaudeMdPath);
   }
 
   // ~/.claude/rules/*.md
-  rulesCount += countRulesInDir(path.join(claudeDir, 'rules'));
+  const userRules = countRulesInDir(path.join(claudeDir, 'rules'));
+  rulesCount += userRules.count;
+  rulesBytes += userRules.bytes;
 
   // ~/.claude/settings.json (MCPs and hooks)
   const userSettings = path.join(claudeDir, 'settings.json');
@@ -170,29 +190,39 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
 
   if (cwd) {
     // {cwd}/CLAUDE.md
-    if (fs.existsSync(path.join(cwd, 'CLAUDE.md'))) {
+    const cwdClaudeMd = path.join(cwd, 'CLAUDE.md');
+    if (fs.existsSync(cwdClaudeMd)) {
       claudeMdCount++;
+      claudeMdBytes += readFileBytes(cwdClaudeMd);
     }
 
     // {cwd}/CLAUDE.local.md
-    if (fs.existsSync(path.join(cwd, 'CLAUDE.local.md'))) {
+    const cwdClaudeMdLocal = path.join(cwd, 'CLAUDE.local.md');
+    if (fs.existsSync(cwdClaudeMdLocal)) {
       claudeMdCount++;
+      claudeMdBytes += readFileBytes(cwdClaudeMdLocal);
     }
 
     // {cwd}/.claude/CLAUDE.md (alternative location, skip when it is user scope)
-    if (!projectClaudeOverlapsUserScope && fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.md'))) {
+    const cwdDotClaudeMd = path.join(cwd, '.claude', 'CLAUDE.md');
+    if (!projectClaudeOverlapsUserScope && fs.existsSync(cwdDotClaudeMd)) {
       claudeMdCount++;
+      claudeMdBytes += readFileBytes(cwdDotClaudeMd);
     }
 
     // {cwd}/.claude/CLAUDE.local.md
-    if (fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.local.md'))) {
+    const cwdDotClaudeMdLocal = path.join(cwd, '.claude', 'CLAUDE.local.md');
+    if (fs.existsSync(cwdDotClaudeMdLocal)) {
       claudeMdCount++;
+      claudeMdBytes += readFileBytes(cwdDotClaudeMdLocal);
     }
 
     // {cwd}/.claude/rules/*.md (recursive)
     // Skip when it overlaps with user-scope rules.
     if (!projectClaudeOverlapsUserScope) {
-      rulesCount += countRulesInDir(path.join(cwd, '.claude', 'rules'));
+      const projectRules = countRulesInDir(path.join(cwd, '.claude', 'rules'));
+      rulesCount += projectRules.count;
+      rulesBytes += projectRules.bytes;
     }
 
     // {cwd}/.mcp.json (project MCP config) - tracked separately for disabled filtering
@@ -232,5 +262,5 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
   // A server with the same name in both user and project scope counts as 2 (separate configs).
   const mcpCount = userMcpServers.size + projectMcpServers.size;
 
-  return { claudeMdCount, rulesCount, mcpCount, hooksCount };
+  return { claudeMdCount, claudeMdBytes, rulesCount, rulesBytes, mcpCount, hooksCount };
 }

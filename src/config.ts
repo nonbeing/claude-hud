@@ -81,6 +81,7 @@ export interface HudConfig {
     sevenDayThreshold: number;
     environmentThreshold: number;
     customLine: string;
+    showEffort: boolean;
   };
   colors: HudColorOverrides;
 }
@@ -118,6 +119,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     sevenDayThreshold: 80,
     environmentThreshold: 0,
     customLine: '',
+    showEffort: true,
   },
   colors: {
     context: 'green',
@@ -325,6 +327,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     customLine: typeof migrated.display?.customLine === 'string'
       ? migrated.display.customLine.slice(0, 80)
       : DEFAULT_CONFIG.display.customLine,
+    showEffort: typeof migrated.display?.showEffort === 'boolean'
+      ? migrated.display.showEffort
+      : DEFAULT_CONFIG.display.showEffort,
   };
 
   const colors = {

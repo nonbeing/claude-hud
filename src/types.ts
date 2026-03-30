@@ -87,8 +87,11 @@ export interface RenderContext {
   stdin: StdinData;
   transcript: TranscriptData;
   claudeMdCount: number;
+  claudeMdBytes: number;
   rulesCount: number;
+  rulesBytes: number;
   mcpCount: number;
+  mcpEstimatedTokens: number;
   hooksCount: number;
   sessionDuration: string;
   gitStatus: GitStatus | null;
@@ -97,4 +100,5 @@ export interface RenderContext {
   config: HudConfig;
   extraLabel: string | null;
   claudeCodeVersion?: string;
+  effortLevel?: string | null;
 }
