@@ -4,9 +4,10 @@ import { label } from '../colors.js';
 function footprintPercent(estimatedTokens: number, windowSize: number): string {
   if (!Number.isFinite(estimatedTokens) || !Number.isFinite(windowSize) ||
       estimatedTokens <= 0 || windowSize <= 0) return '';
-  const percent = Math.round((estimatedTokens / windowSize) * 100);
-  if (percent < 1) return '';
-  return ` (~${Math.min(percent, 99)}%)`;
+  const rawPercent = (estimatedTokens / windowSize) * 100;
+  if (rawPercent < 0.01) return '';
+  const display = rawPercent < 1 ? rawPercent.toFixed(1) : String(Math.min(Math.round(rawPercent), 99));
+  return ` (~${display}%)`;
 }
 
 export function renderEnvironmentLine(ctx: RenderContext): string | null {
