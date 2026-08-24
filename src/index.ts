@@ -112,7 +112,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       ? await deps.getMemoryUsage()
       : null;
     const effortLevel = config.display.showEffort !== false
-      ? deps.getEffortLevel()
+      ? deps.getEffortLevel(stdin.model?.id)
       : null;
 
     const ctx: RenderContext = {
